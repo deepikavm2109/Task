@@ -1,0 +1,28 @@
+# Python / Django
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+venvTask/
+.env
+
+
+# MySQL dump/backup files
+*.sql
+*.sql.gz
+*.sql.zip
+
+# MySQL configuration files
+my.cnf
+my.ini
+
+# Ignore environment files containing MySQL credentials
+.env
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE settings
+.vscode/
+.idea/
