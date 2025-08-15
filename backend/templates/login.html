@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+{% block title %}Login{% endblock %}
+
+{% block content %}
+<h2>Login</h2>
+
+<form id="loginForm">
+  {% csrf_token %}
+  <label>Username:</label>
+  <input type="text" id="username" required><br><br>
+
+  <label>Password:</label>
+  <input type="password" id="password" required><br><br>
+<div id="error-message" style="color: red;"></div>
+  <button type="submit">Login</button>
+</form>
+
+<script>
+document.getElementById("loginForm").addEventListener("submit", async function (e) {
+    e.preventDefault();
+
+    const username = document.getElementById("username").value.trim();
+    const password = document.getElementById("password").value.trim();
+
+    try {
+        const response = await fetch("/task-api/custom-login/", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ username, password }),
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            // Save JWT tokens and username in localStorage
+            localStorage.setItem("access", data.access);
+            localStorage.setItem("refresh", data.refresh);
+            localStorage.setItem("username", data.username);
+
+            alert("Login successful!");
+            window.location.href = "/task-api/tasks/"; // Your frontend page or API test route
+        } else {
+            document.getElementById("error-message").innerText = data.error || "Invalid login credentials";
+        }
+    } catch (error) {
+        document.getElementById("error-message").innerText = "Something went wrong. Try again.";
+    }
+});
+</script>
+{% endblock %}

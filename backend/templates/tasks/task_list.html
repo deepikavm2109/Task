@@ -1,0 +1,192 @@
+{% extends 'base.html' %}
+{% block title %}My Tasks{% endblock %}
+{% block extra_css %}
+<style>
+.modal {
+    display: none; /* Hidden by default */
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.8); /* Dark semi-transparent background */
+    z-index: 1000;
+    overflow-y: auto; /* Scroll if content is too tall */
+    padding: 50px 20px; /* Space around content */
+    box-sizing: border-box;
+}
+
+.modal-content {
+    background-color: #fff;
+    margin: auto;
+    padding: 20px;
+    border-radius: 10px;
+    max-width: 600px; /* You can make this 100% if you want */
+    width: 100%;
+    box-shadow: 0 0 10px #000;
+    position: relative;
+}
+
+.close {
+    position: absolute;
+    top: 10px;
+    right: 15px;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<h2 id="greeting"></h2> <!-- Greeting will appear here -->
+<h2>My Tasks</h2>
+<div id="tasks"></div>
+
+<!-- Edit Modal -->
+<div id="editModal" class="modal" style="display:none;">
+    <div class="modal-content">
+        <span class="close" onclick="closeModal()">&times;</span>
+        <h3>Edit Task</h3>
+        <form id="editForm">
+            <input type="hidden" id="editId">
+            Title: <input type="text" id="editTitle" required><br><br>
+            Description: <textarea id="editDescription" rows="5" required></textarea><br><br>
+            Status:
+            <select id="editStatus">
+                <option value="Completed">Completed</option>
+                <option value="Pending">Pending</option>
+            </select><br><br>
+            <button type="submit">Save Changes</button>
+        </form>
+    </div>
+</div>
+
+<script>
+const token = localStorage.getItem('access');
+const username = localStorage.getItem('username');
+const isSuperuser = localStorage.getItem('is_superuser') === 'true';
+const apiBase = "/task-api/api";
+
+// Redirect if no token
+if (!token) {
+    window.location.href = "/task-api/login/";
+}
+
+// Set greeting
+document.getElementById('greeting').textContent = isSuperuser
+    ? "Hello Superuser"
+    : `Hello ${username || 'User'}`;
+
+function handleAuthError(res) {
+    if (res.status === 401) {
+        alert("Session expired. Please log in again.");
+        localStorage.clear();
+        window.location.href = "/task-api/login/";
+        return true;
+    }
+    return false;
+}
+
+function loadTasks() {
+    fetch(`${apiBase}/tasks/`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+    })
+    .then(res => {
+        if (handleAuthError(res)) return [];
+        return res.json();
+    })
+    .then(tasks => {
+        const container = document.getElementById('tasks');
+        container.innerHTML = '';
+        if (!tasks || tasks.length === 0) {
+            container.innerHTML = "<p>No tasks found.</p>";
+            return;
+        }
+        tasks.forEach(task => {
+            container.innerHTML += `
+            
+                <div class="col-md-3" style="border:1px solid #ccc;padding:10px;margin:10px; display:inline-block">
+                    <h3>${task.title}</h3>
+                    <p>${task.description}</p>
+                    <p><b>Status:</b> ${task.status}</p>
+                    <p><b>Due:</b> ${task.due_date || 'N/A'}</p>
+                    <button onclick="openEditModal(${task.id}, '${task.title.replace(/'/g, "\\'")}', '${task.description.replace(/'/g, "\\'")}', '${task.status}')">Edit</button>
+                    <button onclick="deleteTask(${task.id})">Delete</button>
+                </div>
+            `;
+        });
+    })
+    .catch(err => {
+        console.error("Error loading tasks:", err);
+        alert("Error loading tasks.");
+    });
+}
+
+function openEditModal(id, title, description, status) {
+    document.getElementById('editId').value = id;
+    document.getElementById('editTitle').value = title;
+    document.getElementById('editDescription').value = description;
+    document.getElementById('editStatus').value = status;
+    document.getElementById('editModal').style.display = 'block';
+}
+
+function closeModal() {
+    document.getElementById('editModal').style.display = 'none';
+}
+
+document.getElementById('editForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const id = document.getElementById('editId').value;
+    const updatedTask = {
+        title: document.getElementById('editTitle').value,
+        description: document.getElementById('editDescription').value,
+        status: document.getElementById('editStatus').value
+    };
+
+    fetch(`${apiBase}/tasks/${id}/update/`, {
+        method: 'PATCH',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(updatedTask)
+    })
+    .then(res => {
+        if (handleAuthError(res)) return;
+        if (res.ok) {
+            alert("Task updated");
+            closeModal();
+            loadTasks();
+        } else {
+            alert("Error updating task");
+        }
+    });
+});
+
+function deleteTask(id) {
+    if (!confirm("Delete this task?")) return;
+    fetch(`${apiBase}/tasks/${id}/delete/`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+    })
+    .then(res => {
+        if (handleAuthError(res)) return;
+        if (res.ok) {
+            alert("Task deleted");
+            loadTasks();
+        } else {
+            alert("Error deleting task");
+        }
+    });
+}
+
+window.onclick = function(event) {
+    if (event.target === document.getElementById('editModal')) {
+        closeModal();
+    }
+}
+
+loadTasks();
+</script>
+{% endblock %}
